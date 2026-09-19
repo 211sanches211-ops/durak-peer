@@ -1,11 +1,29 @@
-const { PeerServer } = require('peer');
+const express = require('express');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 
-const PORT = process.env.PORT || 9000;
+const app = express();
+app.get('/', (req, res) => res.json({ name: 'Durak Relay', ok: true }));
 
-PeerServer({
-  port: PORT,
-  path: '/',
-  allow_discovery: false
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+const peers = new Map();
+
+wss.on('connection', ws => {
+  let myId = null;
+  ws.on('message', raw => {
+    let m; try { m = JSON.parse(raw); } catch { return; }
+    if (m.type === 'reg') {
+      if (peers.has(m.id)) { ws.send(JSON.stringify({ type: 'err', text: 'busy' })); ws.close(); return; }
+      myId = m.id; peers.set(myId, ws); ws.send(JSON.stringify({ type: 'regok', id: myId }));
+    } else if (m.type === 'route') {
+      const t = peers.get(m.to);
+      if (t && t.readyState === 1) t.send(JSON.stringify({ type: 'msg', from: myId, payload: m.payload }));
+      else ws.send(JSON.stringify({ type: 'routeerr', to: m.to }));
+    }
+  });
+  ws.on('close', () => { if (myId && peers.get(myId) === ws) peers.delete(myId); });
 });
 
-console.log('PeerServer listening on port ' + PORT);
+const PORT = process.env.PORT || 9000;
+server.listen(PORT, () => console.log('Durak relay on ' + PORT));
