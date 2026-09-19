@@ -1,0 +1,11 @@
+const { PeerServer } = require('peer');
+
+const PORT = process.env.PORT || 9000;
+
+PeerServer({
+  port: PORT,
+  path: '/',
+  allow_discovery: false
+});
+
+console.log('PeerServer listening on port ' + PORT);
