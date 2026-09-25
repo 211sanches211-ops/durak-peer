@@ -13,9 +13,10 @@ wss.on('connection', ws => {
   let myId = null;
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch { return; }
-    if (m.type === 'reg') {
-      if (peers.has(m.id)) { ws.send(JSON.stringify({ type: 'err', text: 'busy' })); ws.close(); return; }
-      myId = m.id; peers.set(myId, ws); ws.send(JSON.stringify({ type: 'regok', id: myId }));
+      if (m.type === 'reg') {
+      const old = peers.get(m.id);
+      if (old && old !== ws) { try { old.terminate(); } catch (e) {} }
+      myId = m.id; peers.set(m.id, ws); ws.send(JSON.stringify({ type: 'regok', id: myId }));
     } else if (m.type === 'route') {
       const t = peers.get(m.to);
       if (t && t.readyState === 1) t.send(JSON.stringify({ type: 'msg', from: myId, payload: m.payload }));
